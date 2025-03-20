@@ -1,0 +1,270 @@
+---
+title: "Controle Mensal - SAC"
+author: "Divisão de Vigilância Sanitária - VISA/SMS"
+output: word_document
+params:
+  codigo_sac: NULL
+---
+
+```{r Carregando o objeto, include=FALSE}
+resultado <- readRDS("resultado.RDS")
+```
+
+```{r Definindo a SAC, include=FALSE}
+sac <- resultado %>% filter(Codigo_SISAGUA == params$codigo_sac)
+```
+
+```{r, include=FALSE}
+meses <- c("Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro")
+```
+
+-------------------------------------------------------------------------------
+
+### Mês de referência das análises: `r meses[input$mes]`/`r input$ano`
+
+-------------------------------------------------------------------------------
+
+## 1. IDENTIFICAÇÃO DO ESTABELECIMENTO
+
+
+**CNPJ:** `r unique(formatC(sac$CNPJ, format = "f", digits = 0))`
+
+**NOME DA INSTITUIÇÃO:** `r unique(sac$Nome_da_Instituicao)`
+
+**NOME DA SAC:** `r unique(sac$Nome_da_SAC)`
+
+**CÓDIGO SISAGUA:** `r unique(sac$Codigo_SISAGUA)`
+
+-------------------------------------------------------------------------------
+
+## 2. OBJETIVO DOS PROCEDIMENTOS
+
+Avaliar os resultados das análises mensais de controle da qualidade da água realizadas pela SAC, com base nos dados inseridos no SISAGUA, referentes ao mês de `r meses[input$mes]` de `r input$ano` , para verificar conformidade com a Portaria GM/MS nº 888/2021.
+
+-------------------------------------------------------------------------------
+
+## 3. DESCRIÇÃO
+
+### Número de amostras analisadas
+
+#### Saída do tratamento
+
+```{r include=FALSE}
+n_saida_tratamento <- function(sac) {
+  # Definir a ordem correta dos parâmetros
+  ordem <- c("Turbidez (uT)", "Cor (uH)", "pH", "Cloro Residual Livre (mg/L)", "Coliformes totais", "Escherichia coli")
+  
+  # Filtrar apenas os parâmetros com amostragem inadequada (FALSE) e ignorar NA
+  sac_filtrado <- sac[sac$Campo == "Número de amostras analisadas" & sac$freq_ST == FALSE, ]
+  
+  # Remover possíveis NA da coluna 'Parametro' e garantir a ordem correta
+  sac_filtrado <- sac_filtrado[!is.na(sac_filtrado$Parametro), ]
+  sac_filtrado <- sac_filtrado[order(match(sac_filtrado$Parametro, ordem)), ]
+  
+  # Criar mensagens para os parâmetros inadequados
+  msgs <- paste0("- O número de amostras analisadas do parâmetro ", 
+                 sac_filtrado$Parametro, " (n = ", sac_filtrado$Saida_tratamento, ")",
+                 " está **abaixo do mínimo exigido pela legislação.** \n")
+  
+  # Adicionar a mensagem final apropriada
+  if (nrow(sac_filtrado) > 0) {
+    msgs <- c(msgs, "- O número de amostras analisadas dos demais parâmetros está adequado.\n")
+  } else {
+    msgs <- "- O número de amostras analisadas dos parâmetros físico-químicos e microbiológicos está adequado.\n"
+  }
+  
+  cat(msgs, sep = "")
+}
+```
+
+```{r echo=FALSE, results='asis'}
+n_saida_tratamento(sac)
+```
+
+#### Ponto de consumo
+
+```{r include=FALSE}
+n_ponto_consumo <- function(sac) {
+  # Definir a ordem correta dos parâmetros
+  ordem <- c("Turbidez (uT)", "Cor (uH)", "pH", "Cloro Residual Livre (mg/L)", "Coliformes totais", "Escherichia coli")
+  
+  # Filtrar apenas os parâmetros com amostragem inadequada (FALSE) e ignorar NA
+  sac_filtrado <- sac[sac$Campo == "Número de amostras analisadas" & sac$freq_PC == FALSE, ]
+  
+  # Remover possíveis NA da coluna 'Parametro' e garantir a ordem correta
+  sac_filtrado <- sac_filtrado[!is.na(sac_filtrado$Parametro), ]
+  sac_filtrado <- sac_filtrado[order(match(sac_filtrado$Parametro, ordem)), ]
+  
+  # Criar mensagens para os parâmetros inadequados
+  msgs <- paste0("- O número de amostras analisadas do parâmetro ", 
+                 sac_filtrado$Parametro, " (n = ", sac_filtrado$Ponto_consumo, ")",
+                 " está **abaixo do mínimo exigido pela legislação.** \n")
+  
+  # Adicionar a mensagem final apropriada
+  if (nrow(sac_filtrado) > 0) {
+    msgs <- c(msgs, "- O número de amostras analisadas dos demais parâmetros está adequado.\n")
+  } else {
+    msgs <- "- O número de amostras analisadas dos parâmetros físico-químicos e microbiológicos está adequado.\n"
+  }
+  
+  cat(msgs, sep = "")
+}
+```
+
+```{r echo=FALSE, results='asis'}
+n_ponto_consumo(sac)
+```
+
+### Conformidade dos parâmetros físico-químicos e microbiológicos
+
+#### Saída do tratamento
+
+```{r include=FALSE}
+conf_saida_tratamento <- function(sac) {
+  # Definir a ordem dos parâmetros
+  ordem <- c("Turbidez (uT)", "Cor (uH)", "Cloro Residual Livre (mg/L)", "Coliformes totais", "Escherichia coli")
+  
+  # Criar lista de mensagens vazia
+  msgs <- c()
+  
+  # Turbidez
+  if (any(sac$Campo == "Número de dados > 5,0 uT" & sac$Parametro == "Turbidez (uT)" & sac$conf_ST == FALSE, 
+          na.rm = TRUE)) {
+    msgs <- c(msgs, "- A turbidez da água está **acima do Valor Máximo Permitido (VMP) de 5,0 uT.** \n")
+  }
+  
+  # Cor
+  if (any(sac$Campo == "Número de dados > 15,0 uH" & sac$Parametro == "Cor (uH)" & sac$conf_ST == FALSE, 
+          na.rm = TRUE)) {
+    msgs <- c(msgs, "- A cor da água está **acima do Valor Máximo Permitido (VMP) de 15,0 uH.** \n")
+  }
+  
+  # Coliformes totais
+  if (any(sac$Campo == "N de amostras com presença de coliformes totais" & sac$Parametro == "Coliformes totais" & sac$conf_ST == FALSE, na.rm = TRUE)) {
+    msgs <- c(msgs, "- Foram identificadas amostras com **presença de coliformes totais.** \n")
+  }
+  
+  # Escherichia coli
+  if (any(sac$Campo == "N de amostras com presença para Escherichia coli" & sac$Parametro == "Escherichia coli" & sac$conf_ST == FALSE, na.rm = TRUE)) {
+    msgs <- c(msgs, "- Foram identificadas amostras com **presença de _Escherichia coli_.** \n")
+  }
+  
+  # Cloro Residual Livre
+  if (any(sac$Parametro == "Cloro Residual Livre (mg/L)")) {
+    cloro_baixo <- any(sac$conf_ST[sac$Parametro == "Cloro Residual Livre (mg/L)" & sac$Campo == "Número de dados < 0,2 mg/L"] == FALSE, na.rm = TRUE)
+    cloro_alto <- any(sac$conf_ST[sac$Parametro == "Cloro Residual Livre (mg/L)" & sac$Campo == "Número de dados > 5,0 mg/L"] == FALSE, na.rm = TRUE)
+    
+    if (cloro_baixo & !cloro_alto) {
+      msgs <- c(msgs, "- Os teores de cloro residual livre estão **abaixo do valor mínimo exigido de 0,2 mg/L.** \n")
+    } else if (!cloro_baixo & cloro_alto) {
+      msgs <- c(msgs, "- Os teores de cloro residual livre estão **acima do Valor Máximo Permitido (VMP) de 5,0 mg/L.** \n")
+    } else if (cloro_baixo & cloro_alto) {
+      msgs <- c(msgs, "- Foram observadas **desconformidades nos teores de cloro residual livre.** \n")
+    }
+  }
+  
+  # Ordenar mensagens conforme a ordem dos parâmetros
+  if (length(msgs) > 0) {
+    # Extrair os parâmetros das mensagens
+    parametros_extraidos <- sub("- .* (Turbidez \\(uT\\)|Cor \\(uH\\)|Cloro Residual Livre \\(mg/L\\)|Coliformes totais|Escherichia coli) .*", "\\1", msgs)
+    indices <- match(parametros_extraidos, ordem)
+    msgs <- msgs[order(indices)]
+    
+    # Adicionar mensagem sobre demais parâmetros estarem adequados
+    msgs <- c(msgs, "- Os demais parâmetros analisados estão em conformidade com a legislação. \n")
+  } else {
+    # Se nenhuma inadequação foi encontrada, mensagem geral
+    msgs <- "- Os parâmetros físico-químicos e microbiológicos estão em conformidade com a legislação. \n"
+  }
+  
+  # Imprimir mensagens
+  cat(msgs, sep = "")
+}
+```
+
+```{r echo=FALSE, results='asis'}
+conf_saida_tratamento(sac)
+```
+
+#### Ponto de consumo
+
+```{r include=FALSE}
+conf_ponto_consumo <- function(sac) {
+  # Definir a ordem dos parâmetros
+  ordem <- c("Turbidez (uT)", "Cor (uH)", "Cloro Residual Livre (mg/L)", "Coliformes totais", "Escherichia coli")
+  
+  # Criar lista de mensagens vazia
+  msgs <- c()
+  
+  # Turbidez
+  if (any(sac$Campo == "Número de dados > 5,0 uT" & sac$Parametro == "Turbidez (uT)" & sac$conf_ST == FALSE, na.rm = TRUE)) {
+    msgs <- c(msgs, "- A turbidez da água está **acima do Valor Máximo Permitido (VMP) de 5,0 uT.** \n")
+  }
+  
+  # Cor
+  if (any(sac$Campo == "Número de dados > 15,0 uH" & sac$Parametro == "Cor (uH)" & sac$conf_ST == FALSE, na.rm = TRUE)) {
+    msgs <- c(msgs, "- A cor da água está **acima do Valor Máximo Permitido (VMP) de 15,0 uH.** \n")
+  }
+  
+  # Coliformes totais
+  if (any(sac$Campo == "N de amostras com presença de coliformes totais" & sac$Parametro == "Coliformes totais" & sac$conf_ST == FALSE, na.rm = TRUE)) {
+    msgs <- c(msgs, "- Foram identificadas amostras com **presença de coliformes totais.** \n")
+  }
+  
+  # Escherichia coli
+  if (any(sac$Campo == "N de amostras com presença para Escherichia coli" & sac$Parametro == "Escherichia coli" & sac$conf_ST == FALSE, na.rm = TRUE)) {
+    msgs <- c(msgs, "- Foram identificadas amostras com **presença de _Escherichia coli_.** \n")
+  }
+  
+  # Cloro Residual Livre
+  if (any(sac$Parametro == "Cloro Residual Livre (mg/L)")) {
+    cloro_baixo <- any(sac$conf_ST[sac$Parametro == "Cloro Residual Livre (mg/L)" & sac$Campo == "Número de dados < 0,2 mg/L"] == FALSE, na.rm = TRUE)
+    cloro_alto <- any(sac$conf_ST[sac$Parametro == "Cloro Residual Livre (mg/L)" & sac$Campo == "Número de dados > 5,0 mg/L"] == FALSE, na.rm = TRUE)
+    
+    if (cloro_baixo & !cloro_alto) {
+      msgs <- c(msgs, "- Os teores de cloro residual livre estão **abaixo do valor mínimo exigido de 0,2 mg/L.** \n")
+    } else if (!cloro_baixo & cloro_alto) {
+      msgs <- c(msgs, "- Os teores de cloro residual livre estão **acima do Valor Máximo Permitido (VMP) de 5,0 mg/L.** \n")
+    } else if (cloro_baixo & cloro_alto) {
+      msgs <- c(msgs, "- Foram observadas **desconformidades nos teores de cloro residual livre.** \n")
+    }
+  }
+  
+  # Ordenar mensagens conforme a ordem dos parâmetros
+  if (length(msgs) > 0) {
+    # Extrair os parâmetros das mensagens
+    parametros_extraidos <- sub("- .* (Turbidez \\(uT\\)|Cor \\(uH\\)|Cloro Residual Livre \\(mg/L\\)|Coliformes totais|Escherichia coli) .*", "\\1", msgs)
+    indices <- match(parametros_extraidos, ordem)
+    msgs <- msgs[order(indices)]
+    
+    # Adicionar mensagem sobre demais parâmetros estarem adequados
+    msgs <- c(msgs, "- Os demais parâmetros analisados estão em conformidade com a legislação. \n")
+  } else {
+    # Se nenhuma inadequação foi encontrada, mensagem geral
+    msgs <- "- Os parâmetros físico-químicos e microbiológicos analisados estão em conformidade com a legislação. \n"
+  }
+  
+  # Imprimir mensagens
+  cat(msgs, sep = "")
+}
+```
+
+```{r echo=FALSE, results='asis'}
+conf_ponto_consumo(sac)
+```
+
+-------------------------------------------------------------------------------
+
+## 4. CONSIDERAÇÕES FINAIS SOBRE O FUNCIONAMENTO DO ESTABELECIMENTO
+
+Para manter-se em regularidade sanitária, o estabelecimento deverá:
+
+1. Atender à frequência mínima de amostragem e garantir o número mínimo de amostras para as análises físico-químicas e microbiológicas, conforme Anexo 15 da Portaria GM/MS nº 888/2021.
+
+2. Apresentar, no caso de amostras com resultado positivo para coliformes totais ou *Escherichia coli*, os laudos de análises das recoletas com resultados satisfatórios, bem como as medidas corretivas adotadas.
+
+3. Realizar ajustes no processo de desinfecção, quando necessário, para garantir a conformidade dos parâmetros analisados com os padrões de potabilidade expressos nos Anexos 9 a 11 da Portaria GM/MS nº 888/2021.
+
+### LEGISLAÇÃO PERTINENTE
+
+Portaria GM/MS n.º 888, de 4 de maio de 2021. Altera o Anexo XX da Portaria de Consolidação GM/MS nº 5, de 28 de setembro de 2017, para dispor sobre os procedimentos de controle e de vigilância da qualidade da água para consumo humano e seu padrão de potabilidade.
